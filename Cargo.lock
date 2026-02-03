@@ -1097,6 +1097,8 @@ name = "oxide-pass"
 version = "0.1.0"
 dependencies = [
  "actix-web",
+ "dotenvy",
+ "serde",
  "sqlx",
  "tokio",
 ]
