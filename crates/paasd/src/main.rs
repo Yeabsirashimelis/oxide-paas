@@ -4,10 +4,8 @@ mod repository;
 
 use std::env;
 
-use actix_web::{App, HttpResponse, HttpServer, Responder, http::header::ContentType, web};
-use serde::Deserialize;
+use actix_web::{App, HttpServer, web};
 use sqlx::PgPool;
-use crate::models::Application;
 use crate::handlers::app_handlers::post_program;
 
 

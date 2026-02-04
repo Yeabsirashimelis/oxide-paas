@@ -1,6 +1,5 @@
 
-use actix_web::{App, HttpResponse, HttpServer, Responder, http::header::ContentType, web};
-use serde::Deserialize;
+use actix_web::{ HttpResponse, Responder, http::header::ContentType, web};
 use sqlx::PgPool;
 use crate::models::Application;
 use crate::repository::app_repo::insert_application;
