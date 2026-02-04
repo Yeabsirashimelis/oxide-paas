@@ -20,3 +20,12 @@ pub async fn get_applications(pool: &PgPool) -> Result<Vec<Application>, Error> 
         .await?;
     Ok(apps)
 }
+
+pub async fn get_application(pool: &PgPool, app_id: i32) -> Result<Application, Error> {
+    let app = sqlx::query_as(r#"SELECT id, name, command, status, port FROM App where id = $1"#)
+        .bind(app_id)
+        .fetch_one(pool)
+        .await?;
+
+    Ok(app)
+}
