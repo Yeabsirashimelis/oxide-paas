@@ -1,3 +1,5 @@
+use anyhow::Ok;
+
 use crate::{
     cli::{Commands, parse_cli},
     commands::init::init_project,
@@ -11,11 +13,9 @@ fn main() -> anyhow::Result<()> {
 
     match args.command {
         Commands::Init => init_project(),
-        Commands::Deploy => println!("this is deploy command"),
-        Commands::Status => println!("this is status command"),
-        Commands::Logs => println!("this is logs command"),
-        Commands::Stop => println!("this is stop command"),
-    };
-
-    Ok(())
+        Commands::Deploy => Ok(()),
+        Commands::Status => Ok(()),
+        Commands::Logs => Ok(()),
+        Commands::Stop => Ok(()),
+    }
 }
