@@ -1,28 +1,21 @@
-use clap::{Parser, Subcommand};
+use anyhow::Ok;
 
-#[derive(Debug, Parser)]
-pub struct Cli {
-    #[command(subcommand)]
-    pub command: Commands,
-}
+use crate::{
+    cli::{Commands, parse_cli},
+    commands::init::init_project,
+};
 
-#[derive(Debug, Subcommand)]
-pub enum Commands {
-    Init,
-    Deploy,
-    Status,
-    Logs,
-    Stop,
-}
+mod cli;
+mod commands;
 
-fn main() {
-    let args = Cli::parse();
+fn main() -> anyhow::Result<()> {
+    let args = parse_cli();
 
     match args.command {
-        Commands::Init => println!("this is init command"),
-        Commands::Deploy => println!("this is deploy command"),
-        Commands::Status => println!("this is status command"),
-        Commands::Logs => println!("this is logs command"),
-        Commands::Stop => println!("this is stop command"),
-    };
+        Commands::Init => init_project(),
+        Commands::Deploy => Ok(()),
+        Commands::Status => Ok(()),
+        Commands::Logs => Ok(()),
+        Commands::Stop => Ok(()),
+    }
 }
