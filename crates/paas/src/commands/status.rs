@@ -1,6 +1,6 @@
 use serde::Deserialize;
 use shared::Application;
-use std::{fmt::format, fs::read_to_string, path::Path};
+use std::{fs::read_to_string, path::Path};
 use uuid::Uuid;
 
 use anyhow::Ok;
@@ -26,6 +26,7 @@ pub async fn check_status() -> anyhow::Result<()> {
     if app_data.id.is_none() {
         println!("Project not deployed.");
         println!("Run `paas deploy`");
+        return Ok(());
     }
 
     println!(
@@ -38,12 +39,23 @@ pub async fn check_status() -> anyhow::Result<()> {
     let url = format!("http://127.0.0.1:8080/apps/{}", app_data.id.unwrap());
 
     let res = client.get(&url).send().await?;
+
+    if !res.status().is_success() {
+        eprintln!("Failed to fetch status: {}", res.status());
+        return Ok(());
+    }
+
     let application_infos: Application = res.json().await?;
+
+    let id = application_infos
+        .id
+        .map(|id| id.to_string())
+        .unwrap_or("unknown".into());
 
     let app_info_to_print = format!(
         "Application: {}\nId: {:?}\nStatus: {:?}\nPort: {}\nCommand: {}",
         application_infos.name,
-        application_infos.id.unwrap(),
+        id,
         application_infos.status,
         application_infos.port,
         application_infos.command
