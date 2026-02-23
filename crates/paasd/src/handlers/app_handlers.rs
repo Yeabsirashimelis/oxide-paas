@@ -3,6 +3,7 @@ use crate::repository::app_repo::{
     get_application, get_applications, insert_application, patch_application,
 };
 use actix_web::{HttpResponse, Responder, web};
+use reqwest::Client;
 use sqlx::PgPool;
 use uuid::Uuid;
 
@@ -10,7 +11,34 @@ pub async fn post_program(pool: web::Data<PgPool>, app: web::Json<Application>) 
     println!("{:?}", app);
 
     match insert_application(pool.get_ref(), &app).await {
-        Ok(app_id) => HttpResponse::Ok().json(app_id),
+        Ok(app_id) => {
+            println!("Application saved. Starting agent...");
+
+            let client = Client::new();
+
+            let agent_url = "http://127.0.0.1:8001/run";
+
+            let agent_response = client.post(agent_url).json(&app_id).send().await;
+
+            match agent_response {
+                Ok(res) if res.status().is_success() => {
+                    println!("Agent started application.");
+                    HttpResponse::Ok().json(app_id)
+                }
+
+                Ok(res) => {
+                    eprintln!("Agent error: {}", res.status());
+                    HttpResponse::InternalServerError()
+                        .body("Application saved but failed to start")
+                }
+
+                Err(_) => {
+                    eprintln!("Cannot reach agent.");
+                    HttpResponse::InternalServerError()
+                        .body("Application saved but agent unavailable")
+                }
+            }
+        }
         Err(error) => {
             eprintln!("DB Error: {}", error);
             return HttpResponse::InternalServerError().finish();
