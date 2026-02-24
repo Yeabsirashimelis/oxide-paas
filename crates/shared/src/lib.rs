@@ -29,3 +29,19 @@ pub struct PatchApplication {
     pub port: Option<i32>,
     pub working_dir: Option<String>,
 }
+
+#[derive(Deserialize, Serialize, Debug, FromRow)]
+pub struct AppLog {
+    pub id: i64,
+    pub app_id: Uuid,
+    pub stream: String,  // "stdout" or "stderr"
+    pub message: String,
+    pub created_at: chrono::DateTime<chrono::Utc>,
+}
+
+#[derive(Deserialize, Serialize, Debug)]
+pub struct NewAppLog {
+    pub app_id: Uuid,
+    pub stream: String,
+    pub message: String,
+}

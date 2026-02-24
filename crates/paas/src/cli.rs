@@ -11,7 +11,11 @@ pub enum Commands {
     Init,
     Deploy,
     Status,
-    Logs,
+    Logs {
+        /// Follow log output in real-time
+        #[arg(short, long)]
+        follow: bool,
+    },
     Stop,
 }
 
