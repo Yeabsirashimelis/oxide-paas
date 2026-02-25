@@ -69,7 +69,10 @@ pub async fn post_program(pool: web::Data<PgPool>, app: web::Json<Application>) 
             match agent_response {
                 Ok(res) if res.status().is_success() => {
                     println!("Agent started application.");
-                    HttpResponse::Ok().json(app_id)
+                    HttpResponse::Ok().json(serde_json::json!({
+                        "id": app_id,
+                        "port": app_with_id.port,
+                    }))
                 }
 
                 Ok(res) => {
@@ -211,11 +214,12 @@ pub async fn get_live_status(
 pub async fn redeploy_program(
     pool: web::Data<PgPool>,
     path: web::Path<Uuid>,
+    body: web::Json<serde_json::Value>,
 ) -> impl Responder {
     let app_id = path.into_inner();
     println!("Redeploying app: {}", app_id);
 
-    let app = match get_application(pool.get_ref(), app_id).await {
+    let mut app = match get_application(pool.get_ref(), app_id).await {
         Ok(app) => app,
         Err(e) => {
             eprintln!("DB Error: {}", e);
@@ -226,6 +230,11 @@ pub async fn redeploy_program(
     // Kill the old process if running
     if let Some(pid) = app.pid {
         kill_app(pid).await;
+    }
+
+    // Update port from paas.toml if provided
+    if let Some(port) = body.get("port").and_then(|p| p.as_i64()) {
+        app.port = port as i32;
     }
 
     // Clear PID explicitly and reset status to PENDING
@@ -248,7 +257,11 @@ pub async fn redeploy_program(
     }
 
     // Start fresh process
-    start_app(app).await;
+    let port = app.port;
+    start_app(app.clone()).await;
 
-    HttpResponse::Ok().body("Application redeployed successfully")
+    HttpResponse::Ok().json(serde_json::json!({
+        "port": port,
+        "name": app.name,
+    }))
 }
