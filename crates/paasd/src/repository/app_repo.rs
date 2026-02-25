@@ -2,6 +2,15 @@ use crate::models::{Application, PatchApplication};
 use sqlx::{Error, PgPool, Row};
 use uuid::Uuid;
 
+pub async fn mark_stale_apps_stopped(pool: &PgPool) -> Result<(), Error> {
+    sqlx::query(
+        "UPDATE apps SET status = 'STOPPED'::app_status, pid = NULL WHERE status != 'STOPPED'::app_status",
+    )
+    .execute(pool)
+    .await?;
+    Ok(())
+}
+
 pub async fn is_port_in_use(pool: &PgPool, port: i32) -> Result<bool, Error> {
     let row: (i64,) =
         sqlx::query_as("SELECT COUNT(*) FROM apps WHERE port = $1 AND status != 'STOPPED'::app_status")
