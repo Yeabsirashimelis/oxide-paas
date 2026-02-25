@@ -1,4 +1,4 @@
-use crate::models::{Application, PatchApplication};
+use crate::models::{Application, AppStatus, PatchApplication};
 use crate::repository::app_repo::{
     get_application, get_applications, insert_application, patch_application,
 };
@@ -82,6 +82,25 @@ pub async fn patch_program(
 ) -> impl Responder {
     let app_id = path.into_inner();
     println!("patch app id: {}", app_id);
+
+    // If stopping, fetch the PID and kill the process via agent
+    if matches!(edited_app_info.status, Some(AppStatus::STOPPED)) {
+        match get_application(pool.get_ref(), app_id).await {
+            Ok(app) => {
+                if let Some(pid) = app.pid {
+                    let client = Client::new();
+                    let agent_url = "http://127.0.0.1:8001/stop";
+                    let body = serde_json::json!({ "pid": pid });
+                    if let Err(e) = client.post(agent_url).json(&body).send().await {
+                        eprintln!("Failed to contact agent to kill process: {}", e);
+                    }
+                }
+            }
+            Err(e) => {
+                eprintln!("Could not fetch app to get PID: {}", e);
+            }
+        }
+    }
 
     match patch_application(pool.get_ref(), app_id, &edited_app_info).await {
         Ok(_) => HttpResponse::Ok().body(format!(

@@ -19,14 +19,14 @@ pub async fn insert_application(pool: &PgPool, app: &Application) -> Result<Uuid
 }
 
 pub async fn get_applications(pool: &PgPool) -> Result<Vec<Application>, Error> {
-    let apps = sqlx::query_as(r#"SELECT id, name, command, status, port, working_dir FROM apps"#)
+    let apps = sqlx::query_as(r#"SELECT id, name, command, status, port, working_dir, pid FROM apps"#)
         .fetch_all(pool)
         .await?;
     Ok(apps)
 }
 
 pub async fn get_application(pool: &PgPool, app_id: Uuid) -> Result<Application, Error> {
-    let app = sqlx::query_as(r#"SELECT id, name, command, status, port, working_dir FROM apps where id = $1"#)
+    let app = sqlx::query_as(r#"SELECT id, name, command, status, port, working_dir, pid FROM apps where id = $1"#)
         .bind(app_id)
         .fetch_one(pool)
         .await?;
@@ -62,6 +62,10 @@ pub async fn patch_application(
         fields.push(format!("working_dir = ${}", fields.len() + 1));
     }
 
+    if app.pid.is_some() {
+        fields.push(format!("pid = ${}", fields.len() + 1));
+    }
+
     if fields.is_empty() {
         return Ok(());
     }
@@ -89,6 +93,10 @@ pub async fn patch_application(
 
     if let Some(working_dir) = &app.working_dir {
         sql = sql.bind(working_dir);
+    }
+
+    if let Some(pid) = &app.pid {
+        sql = sql.bind(pid);
     }
 
     sql = sql.bind(app_id);

@@ -6,7 +6,6 @@ use std::{
 use actix_web::{App, HttpResponse, HttpServer, Responder, web};
 use reqwest::Client;
 use shared::{Application, NewAppLog};
-use uuid::Uuid;
 
 async fn run_program(app: web::Json<Application>) -> impl Responder {
     println!("Starting application: {}", app.name);
@@ -43,6 +42,14 @@ async fn run_program(app: web::Json<Application>) -> impl Responder {
         Ok(mut process) => {
             let pid = process.id();
             println!("Application started with PID: {:?}", pid);
+
+            // Send PID and update status to RUNNING in paasd
+            let client_pid = Client::new();
+            let patch_url = format!("http://127.0.0.1:8080/apps/{}", app_id);
+            let patch_body = serde_json::json!({ "pid": pid as i32, "status": "RUNNING" });
+            if let Err(e) = client_pid.patch(&patch_url).json(&patch_body).send().await {
+                eprintln!("Failed to update PID and status in paasd: {}", e);
+            }
 
             let stdout = process.stdout.take();
             let stderr = process.stderr.take();
@@ -102,6 +109,44 @@ async fn run_program(app: web::Json<Application>) -> impl Responder {
     }
 }
 
+async fn stop_program(body: web::Json<serde_json::Value>) -> impl Responder {
+    let pid = match body.get("pid").and_then(|p| p.as_i64()) {
+        Some(pid) => pid as u32,
+        None => {
+            eprintln!("No PID provided");
+            return HttpResponse::BadRequest().body("No PID provided");
+        }
+    };
+
+    println!("Killing process with PID: {}", pid);
+
+    #[cfg(target_os = "windows")]
+    let result = std::process::Command::new("taskkill")
+        .args(["/PID", &pid.to_string(), "/F"])
+        .output();
+
+    #[cfg(not(target_os = "windows"))]
+    let result = std::process::Command::new("kill")
+        .args(["-9", &pid.to_string()])
+        .output();
+
+    match result {
+        Ok(output) if output.status.success() => {
+            println!("Process {} killed successfully", pid);
+            HttpResponse::Ok().body(format!("Process {} stopped", pid))
+        }
+        Ok(output) => {
+            let err = String::from_utf8_lossy(&output.stderr);
+            eprintln!("Failed to kill process {}: {}", pid, err);
+            HttpResponse::InternalServerError().body(format!("Failed to kill process: {}", err))
+        }
+        Err(e) => {
+            eprintln!("Error killing process {}: {}", pid, e);
+            HttpResponse::InternalServerError().body(format!("Error: {}", e))
+        }
+    }
+}
+
 async fn send_log(log: NewAppLog) {
     let client = Client::new();
     let url = format!("http://127.0.0.1:8080/apps/{}/logs", log.app_id);
@@ -114,8 +159,12 @@ async fn send_log(log: NewAppLog) {
 async fn main() -> std::io::Result<()> {
     let addr = ("127.0.0.1", 8001);
     println!("app is bound to http://{}:{}", addr.0, addr.1);
-    HttpServer::new(move || App::new().route("/run", web::post().to(run_program)))
-        .bind(addr)?
-        .run()
-        .await
+    HttpServer::new(move || {
+        App::new()
+            .route("/run", web::post().to(run_program))
+            .route("/stop", web::post().to(stop_program))
+    })
+    .bind(addr)?
+    .run()
+    .await
 }
