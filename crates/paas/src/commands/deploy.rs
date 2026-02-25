@@ -70,6 +70,8 @@ pub async fn deploy_project() -> anyhow::Result<()> {
         writeln!(file, "\nid = \"{}\"", application_id)?;
 
         println!("Project Successfully deployed");
+        println!("Application is running on port {}", app_data.port.unwrap_or(3000));
+        println!("Local: http://localhost:{}", app_data.port.unwrap_or(3000));
     } else if res.status() == reqwest::StatusCode::CONFLICT {
         let body = res.text().await.unwrap_or_default();
         eprintln!("Deployment failed: {}", body);

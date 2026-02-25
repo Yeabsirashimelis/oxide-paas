@@ -122,7 +122,7 @@ async fn stop_program(body: web::Json<serde_json::Value>) -> impl Responder {
 
     #[cfg(target_os = "windows")]
     let result = std::process::Command::new("taskkill")
-        .args(["/PID", &pid.to_string(), "/F"])
+        .args(["/PID", &pid.to_string(), "/F", "/T"])
         .output();
 
     #[cfg(not(target_os = "windows"))]
