@@ -53,6 +53,7 @@ pub async fn deploy_project() -> anyhow::Result<()> {
         status: shared::AppStatus::PENDING,
         id: None,
         working_dir: current_dir,
+        pid: None,
     };
 
     let client = Client::new();

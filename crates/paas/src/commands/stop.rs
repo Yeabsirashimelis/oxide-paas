@@ -62,7 +62,7 @@ pub async fn stop_application() -> anyhow::Result<()> {
             println!("Application already stopped.");
             return Ok(());
         }
-        AppStatus::RUNNING => {
+        AppStatus::RUNNING | AppStatus::PENDING => {
             println!("Stopping application...");
             let url = format!("http://127.0.0.1:8080/apps/{}", app_id);
 
@@ -72,6 +72,7 @@ pub async fn stop_application() -> anyhow::Result<()> {
                 command: Option::None,
                 port: Option::None,
                 working_dir: Option::None,
+                pid: Option::None,
             };
 
             let res = match client.patch(&url).json(&request_payload).send().await {

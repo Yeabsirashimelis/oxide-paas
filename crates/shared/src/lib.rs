@@ -19,6 +19,7 @@ pub struct Application {
     pub status: AppStatus,
     pub port: i32,
     pub working_dir: String,
+    pub pid: Option<i32>,
 }
 
 #[derive(Deserialize, Serialize, Debug, FromRow)]
@@ -28,6 +29,7 @@ pub struct PatchApplication {
     pub status: Option<AppStatus>,
     pub port: Option<i32>,
     pub working_dir: Option<String>,
+    pub pid: Option<i32>,
 }
 
 #[derive(Deserialize, Serialize, Debug, FromRow)]
