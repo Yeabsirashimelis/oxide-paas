@@ -2,6 +2,14 @@ use crate::models::{Application, PatchApplication};
 use sqlx::{Error, PgPool, Row};
 use uuid::Uuid;
 
+pub async fn delete_application(pool: &PgPool, app_id: Uuid) -> Result<(), Error> {
+    sqlx::query("DELETE FROM apps WHERE id = $1")
+        .bind(app_id)
+        .execute(pool)
+        .await?;
+    Ok(())
+}
+
 pub async fn mark_stale_apps_stopped(pool: &PgPool) -> Result<(), Error> {
     sqlx::query(
         "UPDATE apps SET status = 'STOPPED'::app_status, pid = NULL WHERE status != 'STOPPED'::app_status",

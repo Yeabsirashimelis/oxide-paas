@@ -89,8 +89,14 @@ pub async fn deploy_project() -> anyhow::Result<()> {
                     eprintln!("Note: App ID not saved to paas.toml since it failed to start.");
                 } else {
                     // Only write id to paas.toml if app actually started
-                    let mut file = fs::OpenOptions::new().append(true).open("paas.toml")?;
-                    writeln!(file, "\nid = \"{}\"", application_id)?;
+                    // Insert id BEFORE the [env] section to avoid it being parsed as an env var
+                    let content = fs::read_to_string("paas.toml")?;
+                    let new_content = if content.contains("[env]") {
+                        content.replace("[env]", &format!("id = \"{}\"\n\n[env]", application_id))
+                    } else {
+                        format!("{}\nid = \"{}\"\n", content, application_id)
+                    };
+                    fs::write("paas.toml", new_content)?;
 
                     let port = status_body["port"].as_i64().unwrap_or(0);
                     if port > 0 {

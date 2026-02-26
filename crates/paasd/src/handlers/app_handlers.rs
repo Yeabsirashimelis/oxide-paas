@@ -1,7 +1,7 @@
 use crate::models::{Application, AppStatus, PatchApplication};
 use crate::repository::app_repo::{
-    clear_pid, get_application, get_applications, insert_application, is_port_in_use,
-    patch_application,
+    clear_pid, delete_application, get_application, get_applications, insert_application,
+    is_port_in_use, patch_application,
 };
 use actix_web::{HttpResponse, Responder, web};
 use reqwest::Client;
@@ -155,6 +155,20 @@ pub async fn patch_program(
         Err(error) => {
             eprintln!("DB Error: {}", error);
             return HttpResponse::InternalServerError().finish();
+        }
+    }
+}
+
+pub async fn delete_program(
+    pool: web::Data<PgPool>,
+    path: web::Path<Uuid>,
+) -> impl Responder {
+    let app_id = path.into_inner();
+    match delete_application(pool.get_ref(), app_id).await {
+        Ok(_) => HttpResponse::Ok().body(format!("Application {} deleted", app_id)),
+        Err(e) => {
+            eprintln!("DB Error: {}", e);
+            HttpResponse::InternalServerError().finish()
         }
     }
 }
