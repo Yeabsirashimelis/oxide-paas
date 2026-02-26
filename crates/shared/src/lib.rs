@@ -20,6 +20,7 @@ pub struct Application {
     pub port: i32,
     pub working_dir: String,
     pub pid: Option<i32>,
+    pub env_vars: Option<serde_json::Value>,
 }
 
 #[derive(Deserialize, Serialize, Debug, FromRow)]
@@ -30,6 +31,7 @@ pub struct PatchApplication {
     pub port: Option<i32>,
     pub working_dir: Option<String>,
     pub pid: Option<i32>,
+    pub env_vars: Option<serde_json::Value>,
 }
 
 #[derive(Deserialize, Serialize, Debug, FromRow)]

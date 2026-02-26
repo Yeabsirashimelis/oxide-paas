@@ -42,9 +42,19 @@ pub async fn redeploy_project() -> anyhow::Result<()> {
         let status_url = format!("http://127.0.0.1:8080/apps/{}/status", app_id);
         if let Ok(status_res) = client2.get(&status_url).send().await {
             if let Ok(status_body) = status_res.json::<serde_json::Value>().await {
-                let port = status_body["port"].as_i64().unwrap_or(3000);
-                println!("Application is running on port {}", port);
-                println!("Local: http://localhost:{}", port);
+                let status = status_body["status"].as_str().unwrap_or("UNKNOWN");
+                if status == "STOPPED" || status == "CRASHED" {
+                    eprintln!("Application failed to start! Check logs with `paas logs`");
+                } else {
+                    let port = status_body["port"].as_i64().unwrap_or(0);
+                    if port > 0 {
+                        println!("Application is running on port {}", port);
+                        println!("Local: http://localhost:{}", port);
+                    } else {
+                        println!("Application is running. Port not yet detected.");
+                        println!("Check `paas logs` for the actual port.");
+                    }
+                }
             }
         }
     } else {

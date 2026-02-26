@@ -1,5 +1,5 @@
 use crate::{
-    cli::{Commands, parse_cli},
+    cli::{Commands, EnvAction, parse_cli},
     commands::{
         deploy::deploy_project, init::init_project, logs::show_logs,
         redeploy::redeploy_project, status::check_status, stop::stop_application,
@@ -20,5 +20,10 @@ async fn main() -> anyhow::Result<()> {
         Commands::Status => check_status().await,
         Commands::Logs { follow } => show_logs(follow).await,
         Commands::Stop => stop_application().await,
+        Commands::Env { action } => match action {
+            EnvAction::Set { key_value } => commands::env_cmd::env_set(key_value),
+            EnvAction::List => commands::env_cmd::env_list(),
+            EnvAction::Remove { key } => commands::env_cmd::env_remove(key),
+        },
     }
 }

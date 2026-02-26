@@ -31,10 +31,21 @@ async fn run_program(app: web::Json<Application>) -> impl Responder {
         program
     };
 
-    let child = Command::new(&program)
-        .args(&args)
-        .current_dir(&working_dir)
-        .stdout(Stdio::piped())
+    let mut cmd = Command::new(&program);
+    cmd.args(&args)
+        .current_dir(&working_dir);
+    
+    if let Some(env_obj) = &app.env_vars {
+        if let Some(map) = env_obj.as_object() {
+            for (key, val) in map {
+                if let Some(val_str) = val.as_str() {
+                    cmd.env(key, val_str);
+                }
+            }
+        }
+    }
+    
+    let child = cmd.stdout(Stdio::piped())
         .stderr(Stdio::piped())
         .spawn();
 

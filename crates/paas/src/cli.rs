@@ -17,6 +17,17 @@ pub enum Commands {
         follow: bool,
     },
     Stop,
+    Env {
+        #[command(subcommand)]
+        action: EnvAction,
+    },
+}
+
+#[derive(Debug, Subcommand)]
+pub enum EnvAction {
+    Set { key_value: String },
+    List,
+    Remove { key: String },
 }
 
 pub fn parse_cli() -> Cli {

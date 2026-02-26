@@ -22,7 +22,7 @@ pub async fn is_port_in_use(pool: &PgPool, port: i32) -> Result<bool, Error> {
 
 pub async fn insert_application(pool: &PgPool, app: &Application) -> Result<Uuid, Error> {
     let query =
-        "INSERT INTO apps (name, command, status, port, working_dir) VALUES ($1, $2, $3, $4, $5) RETURNING id";
+        "INSERT INTO apps (name, command, status, port, working_dir, env_vars) VALUES ($1, $2, $3, $4, $5, $6) RETURNING id";
 
     let row = sqlx::query(query)
         .bind(&app.name)
@@ -30,6 +30,7 @@ pub async fn insert_application(pool: &PgPool, app: &Application) -> Result<Uuid
         .bind(&app.status)
         .bind(&app.port)
         .bind(&app.working_dir)
+        .bind(serde_json::to_value(&app.env_vars).unwrap_or(serde_json::json!({})))
         .fetch_one(pool)
         .await?;
 
@@ -37,14 +38,14 @@ pub async fn insert_application(pool: &PgPool, app: &Application) -> Result<Uuid
 }
 
 pub async fn get_applications(pool: &PgPool) -> Result<Vec<Application>, Error> {
-    let apps = sqlx::query_as(r#"SELECT id, name, command, status, port, working_dir, pid FROM apps"#)
+    let apps = sqlx::query_as(r#"SELECT id, name, command, status, port, working_dir, pid, env_vars FROM apps"#)
         .fetch_all(pool)
         .await?;
     Ok(apps)
 }
 
 pub async fn get_application(pool: &PgPool, app_id: Uuid) -> Result<Application, Error> {
-    let app = sqlx::query_as(r#"SELECT id, name, command, status, port, working_dir, pid FROM apps where id = $1"#)
+    let app = sqlx::query_as(r#"SELECT id, name, command, status, port, working_dir, pid, env_vars FROM apps where id = $1"#)
         .bind(app_id)
         .fetch_one(pool)
         .await?;
@@ -92,6 +93,10 @@ pub async fn patch_application(
         fields.push(format!("pid = ${}", fields.len() + 1));
     }
 
+    if app.env_vars.is_some() {
+        fields.push(format!("env_vars = ${}", fields.len() + 1));
+    }
+
     if fields.is_empty() {
         return Ok(());
     }
@@ -123,6 +128,10 @@ pub async fn patch_application(
 
     if let Some(pid) = &app.pid {
         sql = sql.bind(pid);
+    }
+
+    if let Some(env_vars) = &app.env_vars {
+        sql = sql.bind(env_vars);
     }
 
     sql = sql.bind(app_id);
