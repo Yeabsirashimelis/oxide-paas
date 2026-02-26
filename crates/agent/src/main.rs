@@ -106,7 +106,19 @@ async fn spawn_app(app: Application, attempt: u32) {
         return;
     }
 
-    let program = parts[0].to_string();
+    // On Windows, npm/npx/yarn are .cmd files and need special handling
+    let raw_program = parts[0].to_string();
+    #[cfg(target_os = "windows")]
+    let program = match raw_program.as_str() {
+        "npm" => "npm.cmd".to_string(),
+        "npx" => "npx.cmd".to_string(),
+        "yarn" => "yarn.cmd".to_string(),
+        "pnpm" => "pnpm.cmd".to_string(),
+        _ => raw_program,
+    };
+    #[cfg(not(target_os = "windows"))]
+    let program = raw_program;
+
     let args: Vec<String> = parts[1..].iter().map(|s| s.to_string()).collect();
 
     let mut cmd = Command::new(&program);
