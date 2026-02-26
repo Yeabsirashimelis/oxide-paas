@@ -31,10 +31,21 @@ async fn run_program(app: web::Json<Application>) -> impl Responder {
         program
     };
 
-    let child = Command::new(&program)
-        .args(&args)
-        .current_dir(&working_dir)
-        .stdout(Stdio::piped())
+    let mut cmd = Command::new(&program);
+    cmd.args(&args)
+        .current_dir(&working_dir);
+    
+    if let Some(env_obj) = &app.env_vars {
+        if let Some(map) = env_obj.as_object() {
+            for (key, val) in map {
+                if let Some(val_str) = val.as_str() {
+                    cmd.env(key, val_str);
+                }
+            }
+        }
+    }
+    
+    let child = cmd.stdout(Stdio::piped())
         .stderr(Stdio::piped())
         .spawn();
 
@@ -211,25 +222,50 @@ async fn check_status(path: web::Path<u32>) -> impl Responder {
 fn detect_port(line: &str) -> Option<i32> {
     let line_lower = line.to_lowercase();
 
+    // Ignore error/warning lines — they often contain ports of failed connections
+    if line_lower.contains("error")
+        || line_lower.contains("failed")
+        || line_lower.contains("refused")
+        || line_lower.contains("dial")
+        || line_lower.contains("connect")
+    {
+        return None;
+    }
+
+    // Must contain a signal that the server is ready/listening
+    let is_server_ready = line_lower.contains("listening")
+        || line_lower.contains("started")
+        || line_lower.contains("ready")
+        || line_lower.contains("running")
+        || line_lower.contains("serving")
+        || line_lower.contains("local:")
+        || line_lower.contains("localhost")
+        || line_lower.contains("127.0.0.1");
+
+    if !is_server_ready {
+        return None;
+    }
+
     // Pattern 1: "localhost:3000" or "127.0.0.1:3000"
     for prefix in &["localhost:", "127.0.0.1:"] {
-        if let Some(after) = line.find(prefix).map(|i| &line[i + prefix.len()..]) {
+        if let Some(idx) = line.find(prefix) {
+            let after = &line[idx + prefix.len()..];
             let port_str: String = after.chars().take_while(|c| c.is_ascii_digit()).collect();
             if let Ok(port) = port_str.parse::<i32>() {
-                if port > 0 && port < 65536 {
+                if port > 1024 && port < 65536 {
                     return Some(port);
                 }
             }
         }
     }
 
-    // Pattern 2: "listening on :8080" or "server on :8080" (Go style)
-    if line_lower.contains("listening") || line_lower.contains("started") || line_lower.contains("running") {
+    // Pattern 2: "listening on :8080" or ":8080" (Go style)
+    if line_lower.contains("listening") || line_lower.contains("serving") {
         if let Some(colon_pos) = line.rfind(':') {
             let after = &line[colon_pos + 1..];
             let port_str: String = after.chars().take_while(|c| c.is_ascii_digit()).collect();
             if let Ok(port) = port_str.parse::<i32>() {
-                if port > 0 && port < 65536 {
+                if port > 1024 && port < 65536 {
                     return Some(port);
                 }
             }
@@ -244,7 +280,7 @@ fn detect_port(line: &str) -> Option<i32> {
                 if let Some(next) = words.get(i + 1) {
                     let port_str: String = next.chars().take_while(|c| c.is_ascii_digit()).collect();
                     if let Ok(port) = port_str.parse::<i32>() {
-                        if port > 0 && port < 65536 {
+                        if port > 1024 && port < 65536 {
                             return Some(port);
                         }
                     }

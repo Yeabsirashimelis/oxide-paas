@@ -16,6 +16,7 @@ pub struct PaasConfig {
     pub command: String,
     pub port: Option<i32>,
     pub id: Option<Uuid>,
+    pub env: Option<std::collections::HashMap<String, String>>,
 }
 
 pub async fn deploy_project() -> anyhow::Result<()> {
@@ -55,6 +56,7 @@ pub async fn deploy_project() -> anyhow::Result<()> {
         id: None,
         working_dir: current_dir,
         pid: None,
+        env_vars: app_data.env.map(|e| serde_json::to_value(e).unwrap_or(serde_json::json!({}))),
     };
 
     let client = Client::new();
@@ -70,18 +72,27 @@ pub async fn deploy_project() -> anyhow::Result<()> {
         writeln!(file, "\nid = \"{}\"", application_id)?;
 
         println!("Project Successfully deployed");
-        println!("Starting application...");
-
         // Wait for app to start and detect actual port
+        println!("Starting application...");
         tokio::time::sleep(tokio::time::Duration::from_secs(5)).await;
 
         let client2 = Client::new();
         let status_url = format!("http://127.0.0.1:8080/apps/{}/status", application_id);
         if let Ok(status_res) = client2.get(&status_url).send().await {
             if let Ok(status_body) = status_res.json::<serde_json::Value>().await {
-                let port = status_body["port"].as_i64().unwrap_or(3000);
-                println!("Application is running on port {}", port);
-                println!("Local: http://localhost:{}", port);
+                let status = status_body["status"].as_str().unwrap_or("UNKNOWN");
+                if status == "STOPPED" || status == "CRASHED" {
+                    eprintln!("Application failed to start! Check logs with `paas logs`");
+                } else {
+                    let port = status_body["port"].as_i64().unwrap_or(0);
+                    if port > 0 {
+                        println!("Application is running on port {}", port);
+                        println!("Local: http://localhost:{}", port);
+                    } else {
+                        println!("Application is running. Port not yet detected.");
+                        println!("Check `paas logs` for the actual port.");
+                    }
+                }
             }
         }
     } else if res.status() == reqwest::StatusCode::CONFLICT {

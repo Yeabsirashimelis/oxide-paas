@@ -197,6 +197,7 @@ pub async fn get_live_status(
             working_dir: None,
             status: Some(AppStatus::STOPPED),
             pid: None,
+            env_vars: None,
         };
         let _ = patch_application(pool.get_ref(), app_id, &patch).await;
     }
@@ -250,6 +251,7 @@ pub async fn redeploy_program(
         working_dir: None,
         status: Some(AppStatus::PENDING),
         pid: None,
+        env_vars: None,
     };
     if let Err(e) = patch_application(pool.get_ref(), app_id, &patch).await {
         eprintln!("Failed to reset app status: {}", e);
