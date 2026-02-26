@@ -16,7 +16,14 @@ pub async fn stop_application() -> anyhow::Result<()> {
 
     let config_file_content = read_to_string(filename)?;
 
-    let app_data: PaasConfig = toml::from_str(&config_file_content)?;
+    let app_data: PaasConfig = match toml::from_str(&config_file_content) {
+        Result::Ok(data) => data,
+        Result::Err(e) => {
+            eprintln!("Failed to parse paas.toml: {}", e);
+            eprintln!("Check for duplicate keys in your [env] section.");
+            return Ok(());
+        }
+    };
 
     if app_data.id.is_none() {
         println!("Project not deployed");

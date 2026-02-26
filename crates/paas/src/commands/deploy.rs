@@ -32,7 +32,14 @@ pub async fn deploy_project() -> anyhow::Result<()> {
     let content = std::fs::read_to_string(filename)?;
 
     //map/ deserialize it directly into out struct
-    let app_data: PaasConfig = toml::from_str(&content)?;
+    let app_data: PaasConfig = match toml::from_str(&content) {
+        Result::Ok(data) => data,
+        Result::Err(e) => {
+            eprintln!("Failed to parse paas.toml: {}", e);
+            eprintln!("Check for duplicate keys in your [env] section.");
+            return Ok(());
+        }
+    };
 
     if let Some(existing_id) = app_data.id {
         println!("Project already deployed (id: {}).", existing_id);
@@ -68,11 +75,7 @@ pub async fn deploy_project() -> anyhow::Result<()> {
         let body: serde_json::Value = res.json().await?;
         let application_id: Uuid = body["id"].as_str().unwrap_or_default().parse()?;
 
-        let mut file = fs::OpenOptions::new().append(true).open("paas.toml")?;
-        writeln!(file, "\nid = \"{}\"", application_id)?;
-
         println!("Project Successfully deployed");
-        // Wait for app to start and detect actual port
         println!("Starting application...");
         tokio::time::sleep(tokio::time::Duration::from_secs(5)).await;
 
@@ -83,7 +86,18 @@ pub async fn deploy_project() -> anyhow::Result<()> {
                 let status = status_body["status"].as_str().unwrap_or("UNKNOWN");
                 if status == "STOPPED" || status == "CRASHED" {
                     eprintln!("Application failed to start! Check logs with `paas logs`");
+                    eprintln!("Note: App ID not saved to paas.toml since it failed to start.");
                 } else {
+                    // Only write id to paas.toml if app actually started
+                    // Insert id BEFORE the [env] section to avoid it being parsed as an env var
+                    let content = fs::read_to_string("paas.toml")?;
+                    let new_content = if content.contains("[env]") {
+                        content.replace("[env]", &format!("id = \"{}\"\n\n[env]", application_id))
+                    } else {
+                        format!("{}\nid = \"{}\"\n", content, application_id)
+                    };
+                    fs::write("paas.toml", new_content)?;
+
                     let port = status_body["port"].as_i64().unwrap_or(0);
                     if port > 0 {
                         println!("Application is running on port {}", port);
