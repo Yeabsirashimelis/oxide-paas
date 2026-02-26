@@ -70,9 +70,34 @@ pub fn init_project() -> anyhow::Result<()> {
         _ => prompt_command(runtime),
     };
 
+    // Auto-import env vars from .env file if it exists
+    let env_section = if Path::new(".env").exists() {
+        let env_content = fs::read_to_string(".env").unwrap_or_default();
+        let mut env_lines = String::from("[env]\n");
+        for line in env_content.lines() {
+            let line = line.trim();
+            // Skip empty lines and comments
+            if line.is_empty() || line.starts_with('#') {
+                continue;
+            }
+            // Only process valid KEY=VALUE lines
+            if let Some((key, value)) = line.split_once('=') {
+                let key = key.trim();
+                let value = value.trim();
+                // Escape any quotes in the value
+                let value = value.trim_matches('"').trim_matches('\'');
+                env_lines.push_str(&format!("{} = \"{}\"\n", key, value));
+            }
+        }
+        println!("✔ Imported env vars from .env file");
+        env_lines
+    } else {
+        "[env]\n# DB_HOST = \"localhost\"\n# DB_PORT = \"5432\"\n".to_string()
+    };
+
     let config_content = format!(
-        "name = \"{}\"\nruntime = \"{}\"\ncommand = \"{}\"\nport = 3000\n",
-        folder_name, runtime, command
+        "name = \"{}\"\nruntime = \"{}\"\ncommand = \"{}\"\nport = 3000\n\n{}\n",
+        folder_name, runtime, command, env_section
     );
 
     if Path::new("paas.toml").exists() {
